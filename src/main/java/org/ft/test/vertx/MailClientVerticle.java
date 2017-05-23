@@ -25,7 +25,7 @@ public class MailClientVerticle extends AbstractVerticle{
                 //.setLogin(LoginOption.REQUIRED)
                 .setLogin(LoginOption.REQUIRED)
                 .setUsername("sdk-notice@xl-game.cn")
-                .setPassword("!Q@W3e4r");
+                .setPassword("!Q@W3e4r_123456");
         MailClient mailClient = MailClient.createShared(vertx, mailConfig);
 
 
