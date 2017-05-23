@@ -1,10 +1,9 @@
 /**
  * 
  */
-package org.ft.test.vertx;
+package org.ft.test.vertx.redis;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Vertx;
 import io.vertx.redis.RedisClient;
 import io.vertx.redis.RedisOptions;
 

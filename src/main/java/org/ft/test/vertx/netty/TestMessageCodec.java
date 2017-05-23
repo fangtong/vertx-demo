@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.ft.test.vertx;
+package org.ft.test.vertx.netty;
 
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.MessageCodec;

@@ -1,4 +1,4 @@
-package org.ft.test.vertx;
+package org.ft.test.vertx.metrics;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServer;
@@ -9,8 +9,6 @@ import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.PermittedOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
-
-import java.util.Random;
 
 /**
  * Created by fangtong on 2017/5/18.

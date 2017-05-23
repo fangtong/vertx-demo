@@ -5,9 +5,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBusOptions;
 import io.vertx.ext.dropwizard.DropwizardMetricsOptions;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
+import org.ft.test.vertx.future.FutureComposeTestVerticle;
 
 /**
  * Hello world!
@@ -26,10 +24,7 @@ public class App
 //       Vertx.clusteredVertx(DROPWIZARD_OPTIONS.setEventLoopPoolSize(1).setEventBusOptions(eventBusOptions),result->{
         Vertx vertx = Vertx.vertx(DROPWIZARD_OPTIONS);
 //           Vertx vertx = result.result();
-        vertx.eventBus().<String>localConsumer("local",msg->{
-            System.out.println(msg.body());
-        });
-        vertx.eventBus().send("local","123");
+       vertx.deployVerticle(new FutureComposeTestVerticle());
 //        vertx.deployVerticle(new MetricsDashboardVerticle(),new DeploymentOptions(),result->{
 //            if(result.succeeded()){
 //                vertx.deployVerticle("org.ft.test.vertx.MetricsTestVerticle",new DeploymentOptions().setInstances(

@@ -1,9 +1,8 @@
-package org.ft.test.vertx;
+package org.ft.test.vertx.metrics;
 
 import io.vertx.core.AbstractVerticle;
 
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Created by fangtong on 2017/5/19.

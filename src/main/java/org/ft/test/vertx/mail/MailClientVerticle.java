@@ -1,4 +1,4 @@
-package org.ft.test.vertx;
+package org.ft.test.vertx.mail;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;

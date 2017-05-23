@@ -1,18 +1,15 @@
 /**
  * 
  */
-package org.ft.test.vertx;
+package org.ft.test.vertx.netty;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.NetServer;
 import io.vertx.core.net.NetServerOptions;
 import io.vertx.core.net.NetSocket;
-
-import java.util.Observable;
 
 /**
  * @author fangtong

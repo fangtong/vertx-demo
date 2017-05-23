@@ -1,13 +1,12 @@
-package org.ft.test.vertx;
-
-import java.util.Arrays;
+package org.ft.test.vertx.http;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.HttpClientRequest;
+
+import java.util.Arrays;
 
 public class HttpClientVerticle extends AbstractVerticle {
 

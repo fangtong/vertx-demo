@@ -1,11 +1,8 @@
-package org.ft.test.vertx;
+package org.ft.test.vertx.spring;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.annotation.Bean;
 
 /**
  * Created by fangtong on 2017/5/22.

@@ -1,16 +1,11 @@
-package org.ft.test.vertx;
+package org.ft.test.vertx.mongo;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.mail.MailMessage;
 import io.vertx.ext.mongo.FindOptions;
 import io.vertx.ext.mongo.MongoClient;
 
-import java.util.Arrays;
 import java.util.List;
 
 public class MongoClientVerticle extends AbstractVerticle {

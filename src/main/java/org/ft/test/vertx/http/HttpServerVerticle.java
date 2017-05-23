@@ -1,4 +1,4 @@
-package org.ft.test.vertx;
+package org.ft.test.vertx.http;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
