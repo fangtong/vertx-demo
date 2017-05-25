@@ -21,7 +21,7 @@ import java.util.UUID;
 public class NettyClientVerticle extends AbstractVerticle {
 
     NetSocket netSocket;
-    String bindActorDeploymentId;
+    ActorVerticle bindActor;
     Handler<String> connectSuccessHandler;
 
     public NettyClientVerticle connectSuccessHandle(Handler<String> handle){
@@ -87,11 +87,12 @@ public class NettyClientVerticle extends AbstractVerticle {
                 .put("socket_id", netSocket.writeHandlerID());
         DeploymentOptions deployOptions = new DeploymentOptions()
                 .setConfig(config);
-        vertx.deployVerticle(new ActorVerticle(), deployOptions, result -> {
+        final ActorVerticle actorVerticle = new ActorVerticle();
+        vertx.deployVerticle(actorVerticle, deployOptions, result -> {
             if (result.succeeded()) {
-                bindActorDeploymentId = result.result();
+                bindActor = actorVerticle;
                 if(connectSuccessHandler != null){
-                    connectSuccessHandler.handle(bindActorDeploymentId);
+                    connectSuccessHandler.handle(bindActor.deploymentID());
                 }
             } else {
                 netSocket.close();
@@ -106,7 +107,7 @@ public class NettyClientVerticle extends AbstractVerticle {
      */
     private Handler<Buffer> handler() {
         return buffer -> {
-            vertx.eventBus().send("actor_"+netSocket.writeHandlerID(),buffer);
+            bindActor.reciveBufferHandle(buffer);
         };
     }
 
@@ -118,16 +119,18 @@ public class NettyClientVerticle extends AbstractVerticle {
     private Handler<Void> endHandler() {
         return v -> {
             System.out.println("socket end");
-            //undeploy
-            if(bindActorDeploymentId != null){
-                vertx.undeploy(bindActorDeploymentId);
-                bindActorDeploymentId = null;
-            }
-
-
-            //重连
-            connectServer().setHandler(result -> {
-                System.out.println(result.succeeded());
+            Future.<Void>future( f-> {
+                //undeploy
+                if(bindActor != null){
+                    String deploymentId = bindActor.deploymentID();
+                    bindActor = null;
+                    vertx.undeploy(deploymentId,f.completer());
+                }
+            }).setHandler(asyncresult->{
+                //重连
+                connectServer().setHandler(result -> {
+                    System.out.println(result.succeeded());
+                });
             });
         };
     }

@@ -16,18 +16,16 @@ public class ActorVerticle extends AbstractVerticle{
     public void start() throws Exception {
         //绑定socket write id 用于发送数据
         bindNetSocketId = config().getString("socket_id");
-        //bindNetSocketId 用于接收网络请求
-        vertx.eventBus().consumer("actor_"+bindNetSocketId,reciveBufferHandle());
 
         //绑定deploymentID 用于actor接收数据
         vertx.eventBus().consumer(deploymentID(),reciveHandle());
         super.start();
     }
 
-    public Handler<Message<Buffer>> reciveBufferHandle(){
-        return message->{
-            System.out.println(message.body().toString());
-        };
+    public void reciveBufferHandle(final Buffer message){
+        vertx.runOnContext(act->{
+            System.out.println(message.toString());
+        });
     }
 
     public Handler<Message<String>> reciveHandle(){
