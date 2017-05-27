@@ -3,34 +3,83 @@
  */
 package org.ft.test.vertx.netty;
 
-import io.vertx.codegen.annotations.Fluent;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
+import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.core.net.NetSocket;
+import io.vertx.core.streams.Pump;
 
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author fangtong
  */
 public class NettyClientVerticle extends AbstractVerticle {
+    static volatile int a = 0;
+    static volatile int b = 0;
+    public static void main(String[] args) {
+        int delay = 1000, val1 = 10, val2 = 500;
+        String host = "10.20.100.115";
+        if (args.length > 3) {
+            host = args[0];
+            delay = Integer.valueOf(args[1]);
+            val1 = Integer.valueOf(args[2]);
+            val2 = Integer.valueOf(args[3]);
+        }
+        Vertx vertx = Vertx.vertx();
+        DeploymentOptions op = new DeploymentOptions().
+                setConfig(new JsonObject().put("host", host));
 
-    NetSocket netSocket;
-    ActorVerticle bindActor;
-    Handler<String> connectSuccessHandler;
+        List<String> list = new ArrayList<>();
+        final int cnt = val1;
+        final int max = val2;
+        vertx.setPeriodic(delay, t -> {
+            if (b> max && max != 0) return;
+            for (int i = 0; i < cnt; i++) {
+                vertx.deployVerticle(new NettyClientVerticle().connectSuccessHandle(
+                        actor -> {
+                            //actor.sendMessage(Buffer.buffer("1"));
+                            list.add(actor.deploymentID());
+                        }
+                ), op, result -> {
+                    if (result.succeeded()) a++;
+                    b++;
+                });
+            }
+            System.out.println("success:" + a+"/"+b);
+        });
+        vertx.setPeriodic(1000,t->{
+            if(b>= max) {
+                for(String actorid:list){
+                    if(actorid == null) continue;;
+                    vertx.eventBus().send(
+                            actorid,"1");
+                };
+                System.out.println("send:"+list.size());
+            }
+        });
+    }
 
-    public NettyClientVerticle connectSuccessHandle(Handler<String> handle){
+    private NetSocket netSocket;
+    private ActorVerticle bindActor;
+    private Handler<ActorVerticle> connectSuccessHandler;
+    private boolean reConnnect;
+    private String host;
+    private int port;
+
+    public NettyClientVerticle connectSuccessHandle(Handler<ActorVerticle> handle) {
         connectSuccessHandler = handle;
         return this;
     }
 
     @Override
     public void start(Future<Void> startFuture) throws Exception {
+        host = config().getString("host", "localhost");
+        port = config().getInteger("port", 1000);
+        reConnnect = config().getBoolean("reConnect", false);
+
         Future<Void> future = connectServer();
         future.setHandler(result -> {
             if (result.succeeded()) {
@@ -43,6 +92,7 @@ public class NettyClientVerticle extends AbstractVerticle {
 
     /**
      * 连接服务器
+     *
      * @return
      */
     private Future<Void> connectServer() {
@@ -52,7 +102,7 @@ public class NettyClientVerticle extends AbstractVerticle {
                 .setReconnectAttempts(10)
                 .setReconnectInterval(500);
         vertx.createNetClient(options)
-                .connect(1000, "localhost", result -> {
+                .connect(port, host, result -> {
                     if (result.succeeded()) {
                         init(result.result());
                         future.complete();
@@ -72,9 +122,9 @@ public class NettyClientVerticle extends AbstractVerticle {
     private void init(NetSocket netSocket) {
         this.netSocket = netSocket;
         bindSocket(netSocket)
-                .handler(handler())
                 //close = end
                 .endHandler(endHandler());
+//        System.out.println("client:" + netSocket.writeHandlerID() + " socket connect");
     }
 
     /**
@@ -83,16 +133,14 @@ public class NettyClientVerticle extends AbstractVerticle {
      * @param netSocket
      */
     private NetSocket bindSocket(NetSocket netSocket) {
-        JsonObject config = new JsonObject()
-                .put("socket_id", netSocket.writeHandlerID());
-        DeploymentOptions deployOptions = new DeploymentOptions()
-                .setConfig(config);
         final ActorVerticle actorVerticle = new ActorVerticle();
-        vertx.deployVerticle(actorVerticle, deployOptions, result -> {
+        final DeploymentOptions op = new DeploymentOptions()
+                .setConfig(new JsonObject().put("socket",netSocket));
+        vertx.deployVerticle(actorVerticle,op, result -> {
             if (result.succeeded()) {
                 bindActor = actorVerticle;
-                if(connectSuccessHandler != null){
-                    connectSuccessHandler.handle(bindActor.deploymentID());
+                if (connectSuccessHandler != null) {
+                    connectSuccessHandler.handle(bindActor);
                 }
             } else {
                 netSocket.close();
@@ -102,37 +150,36 @@ public class NettyClientVerticle extends AbstractVerticle {
     }
 
     /**
-     * 数据接收 直接传递给actor
-     * @return
-     */
-    private Handler<Buffer> handler() {
-        return buffer -> {
-            bindActor.reciveBufferHandle(buffer);
-        };
-    }
-
-    /**
      * socket close
      *
      * @return
      */
     private Handler<Void> endHandler() {
         return v -> {
-            System.out.println("socket end");
-            Future.<Void>future( f-> {
+            System.out.println("client:" + netSocket.writeHandlerID() + " socket end");
+            vertx.<Void>executeBlocking(f -> {
                 //undeploy
-                if(bindActor != null){
+                if (bindActor != null) {
                     String deploymentId = bindActor.deploymentID();
                     bindActor = null;
-                    vertx.undeploy(deploymentId,f.completer());
+                    vertx.undeploy(deploymentId, f.completer());
                 }
-            }).setHandler(asyncresult->{
+            }, asyncresult -> {
+                //后续操作
                 //重连
-                connectServer().setHandler(result -> {
-                    System.out.println(result.succeeded());
-                });
+                if (reConnnect) {
+                    connectServer().setHandler(result -> {
+                        System.out.println(result.succeeded());
+                    });
+
+                }
             });
         };
     }
 
+    public void close() {
+        if (netSocket != null) {
+            netSocket.close();
+        }
+    }
 }

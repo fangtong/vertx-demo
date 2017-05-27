@@ -2,12 +2,12 @@ package org.ft.test.vertx;
 
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
-import io.vertx.core.datagram.DatagramSocket;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpServer;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import org.ft.test.vertx.mail.MailClientVerticle;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

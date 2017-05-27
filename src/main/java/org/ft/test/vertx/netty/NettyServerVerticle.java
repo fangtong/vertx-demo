@@ -3,34 +3,50 @@
  */
 package org.ft.test.vertx.netty;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
+import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.NetServer;
 import io.vertx.core.net.NetServerOptions;
 import io.vertx.core.net.NetSocket;
+import io.vertx.core.streams.Pump;
+import io.vertx.ext.dropwizard.DropwizardMetricsOptions;
+import org.ft.test.vertx.metrics.MetricsDashboardVerticle;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author fangtong
  */
 public class NettyServerVerticle extends AbstractVerticle {
 
-    public static void main(String[] args){
-        Vertx.vertx().deployVerticle(new NettyClientVerticle());
+    public static void main(String[] args) {
+//        VertxOptions DROPWIZARD_OPTIONS = new VertxOptions().
+//                setMetricsOptions(new DropwizardMetricsOptions().setEnabled(true));
+//        Vertx vertx = Vertx.vertx(DROPWIZARD_OPTIONS);
+        Vertx vertx = Vertx.vertx();
+        vertx.deployVerticle(NettyServerVerticle.class.getName(),
+                new DeploymentOptions().setInstances(Runtime.getRuntime().availableProcessors() * 2),
+                result -> {
+                    System.out.println(result.succeeded());
+                });
+//        vertx.deployVerticle(new MetricsDashboardVerticle());
+
     }
-    
-    NetServer netServer;
+
+    private NetServer netServer;
+    private Map<NetSocket, ActorVerticle> mapping = new ConcurrentHashMap<>();
 
     @Override
     public void start(Future<Void> startFuture) throws Exception {
         NetServerOptions option = new NetServerOptions();
+        option.setIdleTimeout(60000)
+                .setTcpKeepAlive(true);
         netServer = vertx.createNetServer(option)
                 .connectHandler(serverConnectHandle())
                 .listen(1000, result -> {
                     if (result.succeeded()) {
-                        System.out.println("suc");
                         startFuture.complete();
                     } else {
                         System.out.println(result.cause());
@@ -38,16 +54,10 @@ public class NettyServerVerticle extends AbstractVerticle {
                     }
 
                 });
+    }
 
-
-        vertx.setTimer(5000, time -> {
-            vertx.sharedData().getLock("close_server", result -> {
-                if (result.succeeded()) {
-                    netServer.close();
-                    result.result().release();
-                }
-            });
-        });
+    public void close() {
+        netServer.close();
     }
 
     /**
@@ -55,21 +65,17 @@ public class NettyServerVerticle extends AbstractVerticle {
      */
     private Handler<NetSocket> serverConnectHandle() {
         return netsocket -> {
-            netsocket.handler(netsocketHandler(netsocket))
-                    .closeHandler(netsocketCloseHandler())
-                    .exceptionHandler(netsocketExceptionHandler());
-        };
-    }
-
-    /**
-     * @return
-     */
-    private Handler<Buffer> netsocketHandler(NetSocket netsocket) {
-        return buffer -> {
-            System.out.println("server receive:" + buffer.toString());
-            String msg = "buffer" + buffer.toString() + "/" + Thread.currentThread().getName();
-            //vertx.eventBus().send(netsocket.writeHandlerID(),Buffer.buffer(msg));
-            netsocket.write(msg);
+            //create and bind Actor
+            DeploymentOptions deploymentOptions = new DeploymentOptions()
+                    .setConfig(new JsonObject().put("socket",netsocket));
+            ActorVerticle actor = new ActorVerticle();
+            vertx.deployVerticle(actor,deploymentOptions, result -> {
+                mapping.put(netsocket, actor);
+                netsocket
+                        .closeHandler(netsocketCloseHandler(netsocket))
+                        .exceptionHandler(netsocketExceptionHandler(netsocket));
+                //System.out.println("server:"+netsocket.writeHandlerID()+" socket connect");
+            });
         };
     }
 
@@ -77,9 +83,14 @@ public class NettyServerVerticle extends AbstractVerticle {
     /**
      * @return
      */
-    private Handler<Void> netsocketCloseHandler() {
+    private Handler<Void> netsocketCloseHandler(NetSocket netsocket) {
         return v -> {
-            System.out.println("The socket has been closed");
+            if (mapping.containsKey(netsocket)) {
+                ActorVerticle actor = mapping.get(netsocket);
+                mapping.remove(netsocket);
+                vertx.undeploy(actor.deploymentID());
+            }
+            //System.out.println("server:"+netsocket.writeHandlerID()+" socket end");
         };
     }
 
@@ -87,10 +98,17 @@ public class NettyServerVerticle extends AbstractVerticle {
     /**
      * @return
      */
-    private Handler<Throwable> netsocketExceptionHandler() {
+    private Handler<Throwable> netsocketExceptionHandler(NetSocket netsocket) {
         return throwable -> {
-            throwable.printStackTrace();
+            //throwable.printStackTrace();
+            System.out.println(throwable.getMessage());
+            netsocket.close();
         };
     }
 
+    @Override
+    public void stop() throws Exception {
+        mapping.clear();
+        super.stop();
+    }
 }

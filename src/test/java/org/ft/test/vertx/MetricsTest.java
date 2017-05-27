@@ -1,18 +1,18 @@
 package org.ft.test.vertx;
 
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
-import io.vertx.core.eventbus.EventBusOptions;
-import io.vertx.core.eventbus.MessageConsumer;
-import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.dropwizard.DropwizardMetricsOptions;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-import org.junit.*;
+import org.ft.test.vertx.metrics.MetricsDashboardVerticle;
+import org.ft.test.vertx.metrics.MetricsTestVerticle;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.FixMethodOrder;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.MethodSorters;
 
@@ -48,7 +48,7 @@ public class MetricsTest {
     @Test
     public  void test1MetricsDashboard(TestContext context){
         Async async = context.async();
-        vertx.deployVerticle(MetricsDashboardVerticle.class.getName(),result->{
+        vertx.deployVerticle(MetricsDashboardVerticle.class.getName(), result->{
             assertThat(result.succeeded()).isEqualTo(true);
             vertx.eventBus().<JsonObject>consumer("metrics", msg->{
                 System.out.println(msg.body().toString());
