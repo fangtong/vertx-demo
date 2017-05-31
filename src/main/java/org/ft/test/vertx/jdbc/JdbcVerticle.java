@@ -7,14 +7,13 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.jdbc.JDBCClient;
 import io.vertx.ext.sql.ResultSet;
 import io.vertx.ext.sql.SQLConnection;
-import io.vertx.ext.sql.SQLRowStream;
 import org.ft.test.vertx.utils.AsyncResultUtil;
 
-import java.rmi.MarshalledObject;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Function;
 
 /**
  * Created by fangtong on 2017/5/27.
@@ -95,23 +94,74 @@ public class JdbcVerticle extends AbstractVerticle {
     }
 
 
-    public void query(String sql, Handler<AsyncResult<ResultSet>> asyncResultHandler) {
-        Future.<SQLConnection>future(f -> {
-            shared.getConnection(f.completer());
-        }).compose(connection -> {
-            Future<SQLConnectionHold<ResultSet>> f = Future.future();
-            connection.query(sql, conv(f, connection));
-            return f;
-        }).setHandler(result -> {
-            if (result.succeeded()) {
-                result.result().connect.close();
+    /**
+     * 事务操作
+     * @param exec 事务中执行
+     * @param asyncResultHandler
+     */
+    public void transactions(Function<SQLConnection, Future<Void>> exec, Handler<AsyncResult<Boolean>> asyncResultHandler) {
+        //要保证连接内 不管是否异常 都要关闭连接
+        shared.getConnection(connResult -> {
+            if (connResult.succeeded()) {
+                SQLConnection connection = connResult.result();
+                //开启事务
+                Future.<Void>future(handle -> {
+                    connection.setAutoCommit(false, handle.completer());
+                }).compose(hold -> { //执行事务操作
+                    return exec.apply(connection);
+                }).compose(hold -> { //提交及回滚
+                    Future<Boolean> f = Future.future();
+                    connection.commit(result -> {
+                        if (result.failed()) {
+                            connection.rollback(rollbackResult -> {
+                                if (rollbackResult.succeeded()) {
+                                    f.complete(false);
+                                } else {
+                                    f.fail(rollbackResult.cause());
+                                }
+                            });
+                        } else {
+                            f.complete(true);
+                        }
+                    });
+                    return f;
+                }).setHandler(result -> {
+                    //关闭连接 回调提交结果
+                    connection.close();
+                    asyncResultHandler.handle(result);
+                });
+            } else {
+                asyncResultHandler.handle(AsyncResultUtil.transform(connResult, old -> null));
             }
-            asyncResultHandler.handle(conv(result));
+        });
+
+    }
+
+
+    /**
+     * 查询
+     *
+     * @param sql
+     * @param asyncResultHandler
+     */
+    public void query(String sql, Handler<AsyncResult<ResultSet>> asyncResultHandler) {
+        shared.getConnection(connresult -> {
+            if (connresult.succeeded()) {
+                //只要连接成功 必须关闭connection
+                SQLConnection connection = connresult.result();
+                Future queryFuture = Future.<ResultSet>future(queryAsyncResult -> {
+                    connection.close();
+                    asyncResultHandler.handle(queryAsyncResult);
+                });
+                connection.query(sql, queryFuture.completer());
+            } else {
+                asyncResultHandler.handle(AsyncResultUtil.transform(connresult, old -> null));
+            }
         });
     }
 
     <T> AsyncResult<T> conv(AsyncResult<SQLConnectionHold<T>> result) {
-        return AsyncResultUtil.transform(result,hold->hold.body);
+        return AsyncResultUtil.transform(result, hold -> hold.body);
     }
 
 
