@@ -1,12 +1,18 @@
 package org.ft.test.vertx.jdbc;
 
 import io.vertx.core.*;
+import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.jdbc.JDBCClient;
 import io.vertx.ext.sql.ResultSet;
 import io.vertx.ext.sql.SQLConnection;
 import io.vertx.ext.sql.SQLRowStream;
+import org.ft.test.vertx.utils.AsyncResultUtil;
 
+import java.rmi.MarshalledObject;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -20,10 +26,12 @@ public class JdbcVerticle extends AbstractVerticle {
     }
 
     volatile int cnt = 0;
+    volatile int error = 0;
 
     BlockingQueue<Integer> mobileNumbers = new LinkedBlockingQueue<>();
 
     JDBCClient shared;
+
     @Override
     public void start(Future<Void> startFuture) throws Exception {
 
@@ -35,26 +43,33 @@ public class JdbcVerticle extends AbstractVerticle {
                 .put("max_pool_size", 30)
                 .put("row_stream_fetch_size", 10000));
 
-        Future.<SQLConnection>future(f -> {
-            shared.getConnection(f.completer());
-        }).compose(connection -> {
-            Future<SQLConnectionHold<SQLRowStream>> f = Future.future();
-            connection.queryStream("select mobileNumber from db_sdk_location.t_phone_province where mobileCity is null", conv(f, connection));
-            return f;
-        }).compose(result -> {
-            SQLRowStream stream = result.body;
-            stream.handler(row -> {
-                Integer head = row.getInteger(0);
-                mobileNumbers.add(head);
-            });
-
-            return Future.succeededFuture(result.connect);
-        })
-                .setHandler(result -> {
+//        Future.<SQLConnection>future(f -> {
+//            shared.getConnection(f.completer());
+//        }).compose(connection -> {
+//            Future<SQLConnectionHold<SQLRowStream>> f = Future.future();
+//            connection.queryStream("select mobileNumber from db_sdk_location.t_phone_province where mobileCity is null", conv(f, connection));
+//            return f;
+//        }).compose(result -> {
+//            SQLRowStream stream = result.body;
+//            stream.handler(row -> {
+//                Integer head = row.getInteger(0);
+//                mobileNumbers.add(head);
+//            });
+//
+//            return Future.succeededFuture(result.connect);
+//        })
+//                .setHandler(result -> {
+//                    if (result.succeeded()) {
+//                        result.result().close();
+//                    } else {
+//                        System.out.println(result.cause().getMessage());
+//                    }
+//                });
+        query("select mobileNumber from db_sdk_location.t_phone_province where mobileCity is null",
+                result -> {
                     if (result.succeeded()) {
-                        result.result().close();
-                    } else {
-                        System.out.println(result.cause().getMessage());
+                        List<JsonArray> rows = result.result().getResults();
+                        rows.forEach(row -> mobileNumbers.add(row.getInteger(0)));
                     }
                 });
 
@@ -66,7 +81,12 @@ public class JdbcVerticle extends AbstractVerticle {
                         r.bodyHandler(buffer -> handler.complete(buffer.toString()));
                     });
                 }, false, rps -> {
-                    System.out.println(head + "/" + rps.result() + (++cnt));
+                    Map<String, String> result = Json.decodeValue((String) rps.result(), Map.class);
+                    if (result.get("city") == null
+                            || result.get("city").equals("null")) {
+                        ++error;
+                    }
+                    System.out.println(head + "/" + rps.result() + (++cnt) + "," + error);
                 });
             }
         });
@@ -74,7 +94,8 @@ public class JdbcVerticle extends AbstractVerticle {
         super.start(startFuture);
     }
 
-    public void query(String sql,Handler<AsyncResult<ResultSet>> asyncResultHandler){
+
+    public void query(String sql, Handler<AsyncResult<ResultSet>> asyncResultHandler) {
         Future.<SQLConnection>future(f -> {
             shared.getConnection(f.completer());
         }).compose(connection -> {
@@ -89,28 +110,8 @@ public class JdbcVerticle extends AbstractVerticle {
         });
     }
 
-    <T> AsyncResult<T> conv(AsyncResult<SQLConnectionHold<T>> result){
-        return new AsyncResult<T>() {
-            @Override
-            public T result() {
-                return result.result().body;
-            }
-
-            @Override
-            public Throwable cause() {
-                return result.cause();
-            }
-
-            @Override
-            public boolean succeeded() {
-                return result.succeeded();
-            }
-
-            @Override
-            public boolean failed() {
-                return result.failed();
-            }
-        };
+    <T> AsyncResult<T> conv(AsyncResult<SQLConnectionHold<T>> result) {
+        return AsyncResultUtil.transform(result,hold->hold.body);
     }
 
 
