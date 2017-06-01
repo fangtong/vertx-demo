@@ -2,6 +2,8 @@ package org.ft.test.vertx.utils;
 
 import io.vertx.core.AsyncResult;
 
+import java.util.function.Function;
+
 /**
  * 异步结果工具类
  * Created by fangtong on 2017/5/31.
@@ -17,11 +19,11 @@ public class AsyncResultUtil {
      * @param <G> 原始类型
      * @return 转换异步结果
      */
-    public static <T,G> AsyncResult<T> transform(AsyncResult<G> orgin,BodyConv<T,G> bodyConv){
+    public static <T,G> AsyncResult<T> transform(AsyncResult<G> orgin,Function<G,T> bodyConv){
         return new AsyncResult<T>() {
             @Override
             public T result() {
-                return bodyConv.conv(orgin.result());
+                return bodyConv.apply(orgin.result());
             }
 
             @Override
@@ -39,10 +41,6 @@ public class AsyncResultUtil {
                 return orgin.failed();
             }
         };
-    }
-
-    public interface BodyConv<T,G>{
-          T conv(G body);
     }
 
 
