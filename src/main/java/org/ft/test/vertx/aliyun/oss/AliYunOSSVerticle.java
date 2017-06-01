@@ -72,36 +72,32 @@ public abstract  class AliYunOSSVerticle extends AbstractVerticle implements Asy
 
     /**
      * 获取 {@link AliYunOSSVerticle } 通过cglib 实现的代理
+     * 异步接口必须符合 最后一个入参为 {@link Handler<AsyncResult<?>>}
      * @return
      */
     static AliYunOSSVerticle generateProxyVerticle(){
         Enhancer enhancer = new Enhancer();
         enhancer.setSuperclass(AliYunOSSVerticle.class);
-        enhancer.setCallback(new MethodInterceptor() {
-            @Override
-            public Object intercept(Object obj, Method method, Object[] args, MethodProxy proxy)
-                    throws Throwable {
-                if(method.getDeclaringClass().equals(AsyncOSSClient.class)) {
-                    AliYunOSSVerticle real = (AliYunOSSVerticle)obj;
-                    Handler<AsyncResult<Object>> handler = (Handler<AsyncResult<Object>>)args[args.length-1];
-                    Object[] execArgs = Arrays.copyOf(args,args.length-1);
-                    real.vertx.executeBlocking(f -> {
-                        try {
-                            Method clientMethod = getOssClientMethodByVerticleMethod(method);
-                            Object invoke = clientMethod.invoke(real.ossClient, execArgs);
-                            f.complete(invoke);
-                        }catch (Throwable cause){
-                            f.fail(cause);
-                        }
-                    }, false, handler);
-                    return null;
-                } else {
-                    return proxy.invokeSuper(obj, args);
-                }
+        enhancer.setCallback((MethodInterceptor) (obj, method, args, proxy) -> {
+            if(method.getDeclaringClass().equals(AsyncOSSClient.class)) {
+                AliYunOSSVerticle real = (AliYunOSSVerticle)obj;
+                Handler<AsyncResult<Object>> handler = (Handler<AsyncResult<Object>>)args[args.length-1];
+                Object[] execArgs = Arrays.copyOf(args,args.length-1);
+                real.vertx.executeBlocking(f -> {
+                    try {
+                        Method clientMethod = getOssClientMethodByVerticleMethod(method);
+                        Object invoke = clientMethod.invoke(real.ossClient, execArgs);
+                        f.complete(invoke);
+                    }catch (Throwable cause){
+                        f.fail(cause);
+                    }
+                }, false, handler);
+                return null;
+            } else {
+                return proxy.invokeSuper(obj, args);
             }
         });
-        AliYunOSSVerticle proxy = (AliYunOSSVerticle) enhancer.create();
-        return proxy;
+        return (AliYunOSSVerticle) enhancer.create();
     }
 
 }
