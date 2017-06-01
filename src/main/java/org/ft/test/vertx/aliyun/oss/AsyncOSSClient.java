@@ -64,6 +64,19 @@ public interface AsyncOSSClient {
      */
     void  appendObject(AppendObjectRequest appendObjectRequest,Handler<AsyncResult<AppendObjectResult>> handler);
 
+    /**
+     * 文件上传
+     *
+     * 上传的文件分成若干个分片分别上传，最后所有分片都上传 成功后，完成整个文件的上传。
+     * 在上传的过程中会记录当前上传的进度信息，记 录在checkpoint文件中。
+     * 如果上传过程中某一分片上传失败，再次上传时会从 checkpoint文件中记录的点继续上传。
+     * 这要求再次调用时要指定与上次相同的 checkpoint文件。上传完成后checkpoint文件会被删除。
+     * 默认一个线程、不开启checkpoint。
+     *
+     * @param uploadFileRequest uploadFileRequest上传文件请求
+     * @param handler
+     */
+    void  uploadFile(UploadFileRequest uploadFileRequest,Handler<AsyncResult<UploadFileResult>> handler);
 
     /**
      * 获取指定的{@link OSSObject}的基本元信息。

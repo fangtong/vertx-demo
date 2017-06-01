@@ -133,7 +133,7 @@ public class AliyunOSSVerticleTest {
     @Test
     public void getSimplifiedObjectMeta(TestContext testContext) {
         Async async = testContext.async();
-        GenericRequest request = new GenericRequest( bucketName,"String-Key");
+        GenericRequest request = new GenericRequest(bucketName, "String-Key");
         aliYunOSSVerticle.getSimplifiedObjectMeta(
                 request,
                 result -> {
@@ -156,7 +156,7 @@ public class AliyunOSSVerticleTest {
                     System.out.println("list objects " + result.succeeded());
                     if (result.succeeded()) {
                         result.result().getObjectSummaries().forEach(ossObjectSummary -> System.out.println(Json.encode(ossObjectSummary)));
-                        result.result().getCommonPrefixes().forEach(prefixe-> System.out.println(prefixe));
+                        result.result().getCommonPrefixes().forEach(prefixe -> System.out.println(prefixe));
                     } else {
                         System.out.println(result.cause().getMessage());
                     }
@@ -167,7 +167,7 @@ public class AliyunOSSVerticleTest {
     @Test
     public void deleteObject(TestContext testContext) {
         Async async = testContext.async();
-        GenericRequest request = new GenericRequest( bucketName,"String-Key");
+        GenericRequest request = new GenericRequest(bucketName, "String-Key");
         aliYunOSSVerticle.deleteObject(
                 request,
                 result -> {
@@ -202,6 +202,28 @@ public class AliyunOSSVerticleTest {
                     System.out.println("set bucket lifecycle " + result.succeeded());
                     if (!result.succeeded()) {
                         System.out.println(result.cause().getMessage());
+                    }
+                    async.countDown();
+                });
+    }
+
+    @Test
+    public void uploadFile(TestContext testContext) {
+        Async async = testContext.async();
+        UploadFileRequest uploadFileRequest = new UploadFileRequest(bucketName, "Upload-Key");
+        uploadFileRequest.setUploadFile("G://test.jsp");
+        // 指定上传并发线程数
+        uploadFileRequest.setTaskNum(5);
+        // 指定上传的分片大小
+        uploadFileRequest.setPartSize(1 * 1024 * 1024);
+        // 开启断点续传
+        uploadFileRequest.setEnableCheckpoint(true);
+        aliYunOSSVerticle.uploadFile(
+                uploadFileRequest,
+                result -> {
+                    System.out.println("uploadFile " + result.succeeded());
+                    if (result.succeeded()) {
+                        System.out.println(Json.encode(result.result().getMultipartUploadResult()));
                     }
                     async.countDown();
                 });
