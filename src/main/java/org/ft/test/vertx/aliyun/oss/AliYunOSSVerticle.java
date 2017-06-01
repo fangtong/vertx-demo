@@ -11,6 +11,7 @@ import net.sf.cglib.proxy.Enhancer;
 import net.sf.cglib.proxy.MethodInterceptor;
 import net.sf.cglib.proxy.MethodProxy;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
@@ -88,6 +89,8 @@ public abstract  class AliYunOSSVerticle extends AbstractVerticle implements Asy
                         Method clientMethod = getOssClientMethodByVerticleMethod(method);
                         Object invoke = clientMethod.invoke(real.ossClient, execArgs);
                         f.complete(invoke);
+                    }catch (InvocationTargetException cause){
+                            f.fail(cause.getTargetException());
                     }catch (Throwable cause){
                         f.fail(cause);
                     }
