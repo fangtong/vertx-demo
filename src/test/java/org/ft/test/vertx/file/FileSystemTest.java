@@ -76,7 +76,6 @@ public class FileSystemTest {
             async.countDown();
         };
 
-
         Future.<AsyncFile>future(f -> {
             vertx.fileSystem().open("G://test.jsp", new OpenOptions(), f.completer());
         }).compose(asyncFile -> {
